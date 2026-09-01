@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: SKILL.md frontmatter is valid
+        run: |
+          python3 - <<'PY'
+          import re, yaml, pathlib
+          p = pathlib.Path("skills/vibe-security-check/SKILL.md")
+          m = re.match(r"^---\n(.*?)\n---\n", p.read_text(), re.S)
+          assert m, "no YAML frontmatter"
+          d = yaml.safe_load(m.group(1))
+          for k in ("name", "description", "license"):
+              assert d.get(k), f"missing {k}"
+          assert d["name"] == "vibe-security-check", d["name"]
+          print(f"ok: {d['name']}, description {len(d['description'])} chars")
+          PY
+
+      - name: Every reference the skill routes to exists
+        run: |
+          python3 - <<'PY'
+          import re, pathlib
+          base = pathlib.Path("skills/vibe-security-check")
+          refs = set(re.findall(r"references/([a-z-]+\.md)", (base / "SKILL.md").read_text()))
+          missing = [r for r in refs if not (base / "references" / r).exists()]
+          assert not missing, f"SKILL.md routes to missing files: {missing}"
+          print(f"ok: {len(refs)} references, all present")
+          PY
+
+      - name: Scripts parse and are executable
+        run: |
+          for f in skills/vibe-security-check/scripts/*.sh; do
+            bash -n "$f"
+            [ -x "$f" ] || { echo "not executable: $f"; exit 1; }
+          done
+
+      - name: shellcheck
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+          shellcheck -S warning skills/vibe-security-check/scripts/*.sh
+
+      - name: Semgrep rules fire on vulnerable fixtures and stay quiet on safe ones
+        run: |
+          pip install --quiet semgrep
+          cd skills/vibe-security-check
+          for f in rules/tests/vulnerable.ts rules/tests/vulnerable.py; do
+            n=$(semgrep --config rules/vibe-security.yaml --metrics=off --disable-version-check \
+                --no-git-ignore --quiet "$f" --json | python3 -c "import json,sys;print(len(json.load(sys.stdin)['results']))")
+            [ "$n" -gt 0 ] || { echo "no findings on $f — rules are broken"; exit 1; }
+            echo "ok: $n findings on $f"
+          done
+          for f in rules/tests/safe.ts rules/tests/safe.py; do
+            n=$(semgrep --config rules/vibe-security.yaml --metrics=off --disable-version-check \
+                --no-git-ignore --quiet "$f" --json | python3 -c "import json,sys;print(len(json.load(sys.stdin)['results']))")
+            [ "$n" -eq 0 ] || { echo "$n false positives on $f"; exit 1; }
+            echo "ok: 0 false positives on $f"
+          done

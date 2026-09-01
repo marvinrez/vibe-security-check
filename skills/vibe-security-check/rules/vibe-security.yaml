@@ -1,0 +1,154 @@
+# Semgrep rules for patterns specific to AI-generated application code.
+#
+# Deliberately narrow. Generic rulesets already cover injection and the classic
+# OWASP shapes; what they miss are the mistakes a model makes when it optimises
+# for "the feature works" — reaching for the key that bypasses rules, trusting a
+# value the client sent, verifying a signature against the wrong body.
+#
+#   semgrep --config rules/vibe-security.yaml .
+#
+# Written for this project. No rule here is derived from another ruleset.
+# Fixtures in rules/tests/ pin the behaviour: vulnerable.ts must trigger every
+# rule, safe.ts must trigger none.
+
+rules:
+  - id: service-role-key-outside-server
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      Service-role or admin key referenced in code that may reach the browser. This key bypasses
+      every row-level rule, so one copy in a bundle is total database compromise. Keep it in
+      server-only code, and fix the permission rule rather than escalating past it.
+    patterns:
+      - pattern-either:
+          - pattern: "process.env.$KEY"
+          - pattern: "import.meta.env.$KEY"
+      - metavariable-regex:
+          metavariable: $KEY
+          regex: .*(SERVICE_ROLE|SERVICE_KEY|ADMIN_KEY|FIREBASE_ADMIN).*
+    paths:
+      exclude:
+        - "**/api/**"
+        - "**/server/**"
+        - "**/*.server.*"
+        - "**/route.ts"
+        - "**/route.js"
+        - "**/functions/**"
+
+  - id: public-prefixed-secret
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      A secret-looking name exposed through a public environment prefix. Anything prefixed
+      NEXT_PUBLIC_, VITE_, EXPO_PUBLIC_ or REACT_APP_ is compiled into the browser bundle as plain
+      text. Move it server-side and have the browser call your own route.
+    patterns:
+      - pattern-either:
+          - pattern: "process.env.$KEY"
+          - pattern: "import.meta.env.$KEY"
+      - metavariable-regex:
+          metavariable: $KEY
+          regex: ^(NEXT_PUBLIC|VITE|EXPO_PUBLIC|REACT_APP)_.*(SECRET|SERVICE_ROLE|PRIVATE|PASSWORD).*
+
+  - id: cost-parameter-from-client
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      A cost parameter taken from the request. An attacker swaps the cheap model for the most
+      expensive one, or sets the token limit to its maximum, inside a perfectly authenticated
+      request — so no permission check notices. Set these on the server.
+    pattern-either:
+      - pattern: "{..., model: $R.body.$X, ...}"
+      - pattern: "{..., model: $R.query.$X, ...}"
+      - pattern: "{..., max_tokens: $R.body.$X, ...}"
+      - pattern: "{..., maxTokens: $R.body.$X, ...}"
+
+  - id: price-from-client
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      A charge amount taken from the request body. The browser can post any number. Look the price
+      up server-side from an item identifier instead.
+    pattern-either:
+      - pattern: "{..., amount: $R.body.$X, ...}"
+      - pattern: "{..., unit_amount: $R.body.$X, ...}"
+      - pattern: "{..., price: $R.body.$X, ...}"
+
+  - id: mass-assignment-from-body
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >-
+      A whole request body passed into a write. If the model has a role, tenant or credit field,
+      the client can set it. Use an explicit allowlist of writable fields per endpoint.
+    pattern-either:
+      - pattern: "$M.update($R.body)"
+      - pattern: "$M.create($R.body)"
+      - pattern: "$M.updateOne($X, $R.body)"
+      - pattern: "$M.findByIdAndUpdate($X, $R.body)"
+
+  - id: raw-html-with-variable
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >-
+      Raw HTML injection with a non-literal value. Frameworks escape by default, so this is an
+      explicit opt-out and needs both a reason and a sanitizer. Confirm the value cannot carry user
+      input.
+    patterns:
+      - pattern-either:
+          - pattern: "$EL.innerHTML = $V"
+          - pattern: "$EL.outerHTML = $V"
+      - pattern-not: '$EL.innerHTML = "..."'
+      - pattern-not: '$EL.outerHTML = "..."'
+
+  - id: tls-verification-disabled
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      TLS verification disabled. Usually added to make a self-signed certificate work locally and
+      never removed. Point the client at the CA bundle instead of switching the check off.
+    pattern-either:
+      - pattern: 'process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0"'
+      - pattern: "{..., rejectUnauthorized: false, ...}"
+
+  - id: tls-verification-disabled-python
+    languages: [python]
+    severity: ERROR
+    message: >-
+      TLS verification disabled. Point the client at the CA bundle instead of switching the check
+      off — verify accepts a path.
+    pattern-either:
+      - pattern: "$R.get(..., verify=False, ...)"
+      - pattern: "$R.post(..., verify=False, ...)"
+      - pattern: "$R.request(..., verify=False, ...)"
+      - pattern: "$S.verify = False"
+
+  - id: webhook-signature-against-parsed-body
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      Webhook signature verified against the parsed body. Verification must run on the raw bytes;
+      once a JSON parser has touched them the signature cannot match, and the usual workaround is
+      to stop verifying. Exempt this route from body parsing and pass the raw buffer.
+    pattern-either:
+      - pattern: "$S.webhooks.constructEvent($R.body, ...)"
+      - pattern: "$S.webhooks.constructEventAsync($R.body, ...)"
+
+  - id: jwt-decoded-without-verification
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      A token decoded without verifying its signature. decode() reads the claims of anything,
+      including a token the attacker wrote. Use verify() with the secret or public key.
+    pattern-either:
+      - pattern: "jwt.decode($T)"
+      - pattern: "jwtDecode($T)"
+
+  - id: permissive-cors-with-credentials
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      Wildcard origin combined with credentials defeats origin protection entirely. Name the
+      origins you accept.
+    pattern-either:
+      - pattern: '{..., origin: "*", ..., credentials: true, ...}'
+      - pattern: '{..., credentials: true, ..., origin: "*", ...}'
