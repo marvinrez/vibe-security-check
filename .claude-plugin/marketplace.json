@@ -1,0 +1,19 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "marvinrez-skills",
+  "description": "Skills for working on code that was generated rather than written.",
+  "owner": {
+    "name": "Marcos Rezende",
+    "url": "https://marcosrezende.com"
+  },
+  "plugins": [
+    {
+      "name": "vibe-security-check",
+      "source": "./",
+      "description": "Security audit for apps built with AI — the app you ship and the pipeline that built it — plus vibe-lint, the handoff pass on the same generated code.",
+      "version": "2.1.0",
+      "category": "security",
+      "homepage": "https://github.com/marvinrez/vibe-security-check"
+    }
+  ]
+}

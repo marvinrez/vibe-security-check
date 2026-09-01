@@ -4,7 +4,15 @@ A security audit skill for apps built with AI — covering **the app you ship** 
 that built it**.
 
 Free, offline, no account. Works with Claude Code, Cursor, Windsurf, Copilot, and with any model
-including local open-source ones. See [INSTALL.md](INSTALL.md).
+including local open-source ones.
+
+```
+/plugin marketplace add marvinrez/vibe-security-check
+/plugin install vibe-security-check@marvinrez-skills
+```
+
+Both skills, updatable in place. Every other install path — plain files, a rules file, a pasted
+prompt, a local model — is in [INSTALL.md](INSTALL.md).
 
 ## Why
 
