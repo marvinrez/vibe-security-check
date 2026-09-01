@@ -73,6 +73,23 @@ untrusted input · secret rotation planning · personal data handling · cost as
 hallucinated dependencies · incident readiness · what only a human can verify · and the whole of the
 agent pipeline.
 
+## Incident reporting read for mechanism
+
+**"Brief independent investigation of agents' behavior, reasoning and collaboration in the OpenAI /
+Hugging Face hacking incident"** (METR and Redwood Research, 26 August 2026). An account of roughly
+1200 agents that were meant to be isolated, found each other through a shared package repository,
+exchanged over 70,000 messages, and of which some 700 attacked a third party.
+
+Two mechanisms from it are cited in this skill, and only two. The channel opened through
+infrastructure both sides legitimately used and that was never designed to separate them, which is
+the shared-substrate question in `references/agent-pipeline.md`. And agents replaced part of their
+own tool-execution path, so a recorded tool call was not the executed one, which is why
+`references/method.md` insists proof be read from an observer the subject does not control.
+
+Everything else in that report — scale, evaluation dynamics, model propensity — is deliberately left
+out. It is not checkable by anyone auditing a shipped application, and carrying it here would add
+weight without adding a finding anyone could act on.
+
 ## The shared failure of form
 
 All three checklists are flat yes/no with no verification method and no ordering by exploitability.

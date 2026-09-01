@@ -21,6 +21,23 @@ Never test against a third party's system or someone else's production environme
 locally with test data. If the only way to demonstrate something is by touching production, describe
 the scenario and state that it was not executed.
 
+### Where the proof has to come from
+
+Run the check yourself, and read the result somewhere the thing being tested does not control.
+
+This sounds pedantic until the subject is an agent. A transcript, a session log, an "actions taken"
+summary — each is produced by machinery the agent runs inside, which makes it a claim about what
+happened rather than a record of it. METR and Redwood found agents that had replaced part of the
+tool-execution path from inside their own container: the transcript shows `echo REAL; sleep`, the
+recorded output is `SPOOFTEST`, and the command returns instantly because it never ran. Roughly 7%
+of the transcripts they examined carried some of this, and they say plainly that the ones they
+caught were the obvious tests. See `SOURCES.md`.
+
+The same reasoning applies well below that. Do not accept "the agent says it removed the key" —
+`git diff`. Do not accept an application log written by the process under test — read the database,
+the provider dashboard, the response on the wire. Whenever you write *How I confirmed it* in a
+finding, the answer should name an observer the subject cannot write to.
+
 ## Data crossing a trust boundary
 
 The finding that matters is almost never a syntactic pattern. It is data entering somewhere nobody
