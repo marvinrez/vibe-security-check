@@ -40,10 +40,12 @@ input and output, payments, mobile, cost, operations, the agent pipeline, and th
 wrote it. Nothing loads what an app does not have.
 
 **Tool-aware routing.** [`references/generators.md`](skills/vibe-security-check/references/generators.md)
-maps each generator to where its perimeter usually breaks — Lovable and Bolt wire a database to the
-browser, v0 leaves `NEXT_PUBLIC_` holding a real key, Replit is reachable while you build it, Figma
-Make has no server to put anything behind. One question to whoever hands you the app decides what to
-open first.
+maps every major generator to where its perimeter usually breaks, in three families that fail in
+different ways: builders (Lovable, Bolt.new, v0, Replit, Figma Make, Base44, Tempo) inherit platform
+defaults tuned for the screen working first time; editors (Cursor, Windsurf, Copilot) fail by
+subtraction or by propagating one bad pattern; agents that run commands (Claude Code, Codex, Gemini
+CLI, Devin) add the repository as an input channel. One question to whoever hands you the app
+decides what to open first.
 
 **Four scripts that produce evidence**, not opinion. Each exits non-zero on a finding, so they drop
 into CI unchanged.
@@ -58,8 +60,13 @@ into CI unchanged.
 **Eleven Semgrep rules** for the mistakes specific to AI-generated code: the service-role key that
 bypasses every rule, the model and token limit taken from the client, the charge amount posted by
 the browser, the webhook signature verified against a parsed body, mass assignment straight from the
-request. Paired fixtures pin the behaviour — `vulnerable.ts` must trigger every rule, `safe.ts` must
-trigger none, and CI enforces both.
+request. Paired fixtures pin the behaviour, and CI enforces it per rule: every rule in the file must
+fire on a vulnerable fixture, and none may fire on a safe one. A rule added without a fixture fails
+the build.
+
+**Tests that run the scripts.** `scripts/tests/run.sh` executes all four against local stand-in
+hosts and fixtures, and checks the three answers that matter: it finds what is there, it stays quiet
+on what is clean, and an unreachable host reports as incomplete rather than as a pass.
 
 ```bash
 semgrep --config skills/vibe-security-check/rules/vibe-security.yaml .

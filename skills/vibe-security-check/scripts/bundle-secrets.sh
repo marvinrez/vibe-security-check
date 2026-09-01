@@ -10,7 +10,7 @@ set -uo pipefail
 
 DIRS=("${@:-}"); [ -z "${DIRS[0]:-}" ] && DIRS=(dist build .next out public)
 
-HITS=$(mktemp -t bundle-hits.XXXXXX)
+HITS=$(mktemp)
 trap 'rm -f "$HITS"' EXIT
 
 # provider key shapes + long JWTs; deliberately narrow to keep noise down
