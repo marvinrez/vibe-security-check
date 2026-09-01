@@ -8,13 +8,18 @@ hosted models and with local open-source ones.
 ```bash
 mkdir -p ~/.claude/skills
 cp -r skills/vibe-security-check ~/.claude/skills/
+cp -r skills/vibe-lint          ~/.claude/skills/     # optional, the handoff pass
 ```
 
 Per project instead of globally: copy into `.claude/skills/` at the repository root.
 
-It triggers on its own when a conversation turns to app security, deploy, `.env`, API keys, database
-rules, MCP servers or agent rule files. To invoke it deliberately: *"audit this app's security
-before I ship it"*.
+`vibe-security-check` triggers on its own when a conversation turns to app security, deploy, `.env`,
+API keys, database rules, MCP servers or agent rule files. To invoke it deliberately: *"audit this
+app's security before I ship it"*.
+
+`vibe-lint` triggers on AI-generated frontend code, code review and handoff. To invoke it
+deliberately: *"code review this, it came out of v0"*. It answers a different question — see
+[Two skills](README.md#two-skills).
 
 ## Cursor, Windsurf, Copilot, Codex, Gemini CLI
 
@@ -26,6 +31,9 @@ cp RULES.md /path/to/project/AGENTS.md
 
 For an audit rather than prevention, paste `skills/vibe-security-check/PROMPT.md` into the chat and
 attach the reference files for the domains that apply.
+
+For the handoff pass, `skills/vibe-lint/SKILL.md` carries a ready-to-paste engineering rules block
+under *Universal Prompt* that works in the same tools.
 
 ## Lovable, v0, Bolt, Replit, ChatGPT, Gemini, or a local model
 

@@ -17,11 +17,33 @@ And when an agent writes the code, the repository becomes an input channel and t
 one executing. That is the only surface here where the target can be **you**, on your machine,
 before anything is deployed.
 
+## Two skills
+
+The same generated code, examined from two sides. They are kept separate because the findings have
+different consequences and different readers, and because a hardcoded hex colour and a hardcoded API
+key look alike and are not the same finding.
+
+| Skill | Answers | Read it when |
+| --- | --- | --- |
+| [`vibe-security-check`](skills/vibe-security-check/SKILL.md) | can someone else read the data? | before publishing, launching, handing off or taking over |
+| [`vibe-lint`](skills/vibe-lint/SKILL.md) | can an engineer take this over? | before a prototype becomes a sprint estimate |
+
+A prototype heading for production usually needs both, in that order — a component nobody can
+maintain is where a fixed check quietly comes back. `vibe-lint` was
+[its own repository](https://github.com/marvinrez/vibe-lint) and now lives here.
+
 ## What is in the box
 
-**A skill that dispatches instead of dumping.** A short `SKILL.md` routes to ten domain references
-loaded only when they apply — secrets, identity, authorization, data stores, input and output,
-payments, mobile, cost, operations, the agent pipeline. Nothing loads what an app does not have.
+**A skill that dispatches instead of dumping.** A short `SKILL.md` routes to twelve domain
+references loaded only when they apply — secrets, client code, identity, authorization, data stores,
+input and output, payments, mobile, cost, operations, the agent pipeline, and the generator that
+wrote it. Nothing loads what an app does not have.
+
+**Tool-aware routing.** [`references/generators.md`](skills/vibe-security-check/references/generators.md)
+maps each generator to where its perimeter usually breaks — Lovable and Bolt wire a database to the
+browser, v0 leaves `NEXT_PUBLIC_` holding a real key, Replit is reachable while you build it, Figma
+Make has no server to put anything behind. One question to whoever hands you the app decides what to
+open first.
 
 **Four scripts that produce evidence**, not opinion. Each exits non-zero on a finding, so they drop
 into CI unchanged.
@@ -71,9 +93,15 @@ structurally cannot catch.
 
 ## Origin
 
-Merges three publicly circulating checklists, deduplicates them, and fills the gaps. Every line is
-written for this project; nothing is copied from any source. Attribution and the gap analysis are in
-[`SOURCES.md`](skills/vibe-security-check/SOURCES.md).
+`vibe-security-check` merges three publicly circulating checklists, deduplicates them, and fills the
+gaps. Every line is written for this project; nothing is copied from any source. Attribution and the
+gap analysis are in [`SOURCES.md`](skills/vibe-security-check/SOURCES.md).
+
+`vibe-lint` started as a separate repository after a `.map()` called on an object took down a demo.
+It arrives here unchanged in substance, with its two reference files moved under `references/` and
+its boundary with the security skill written down in both directions.
+
+Both by [Marcos Rezende](https://marcosrezende.com), written with Claude.
 
 ## Licence
 

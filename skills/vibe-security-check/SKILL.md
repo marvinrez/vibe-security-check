@@ -37,6 +37,8 @@ generic report nobody acts on. Establish first:
 - Who are the actors? (anonymous, signed-in user, admin, external system via webhook)
 - Where does it live? (managed database, bucket, local file, third-party service)
 - What is already published, and what is not yet?
+- Which tool wrote it, and does it still have access? (`references/generators.md` — the generator
+  decides where the hole is, and it is one question to whoever hands you the app)
 
 If the app stores nobody's data and has no login, half of this does not apply — say so instead of
 padding the report with "N/A".
@@ -51,6 +53,7 @@ separate files.
 | Load | When |
 | --- | --- |
 | `references/secrets.md` | always — one live leaked key outranks everything else |
+| `references/client-trust.md` | there is a browser or app frontend at all |
 | `references/identity.md` | there is a login, a session, or a password |
 | `references/authorization.md` | users can see data that is not theirs to see |
 | `references/data-stores.md` | Supabase, Firebase, Postgres, S3 or any bucket |
@@ -60,6 +63,7 @@ separate files.
 | `references/cost.md` | it calls a metered service — a model, SMS, email, images |
 | `references/operations.md` | it is deployed anywhere at all |
 | `references/agent-pipeline.md` | an agent wrote the code, or still has access to the repo |
+| `references/generators.md` | you know which tool generated it — read it first, it routes the rest |
 
 Two files are not domains and are always relevant: `references/human-checks.md` lists what no script
 can verify — separate those in the report instead of silently omitting them — and
@@ -108,3 +112,14 @@ first, then user-against-user, then requires-access-they-don't-have, then harden
 `CLAUDE.md`. It reduces the rate at which these flaws get written. It is **not** a control — a rule
 living in a prompt is negotiable by injected text, and it is versioned where anyone with a pull
 request can change it. `references/agent-pipeline.md` explains what an actual control looks like.
+
+## Its sibling
+
+The `vibe-lint` skill in this repository covers the same generated code from the other side —
+data shapes, component structure, design tokens, the loading and error states that were never
+written. It is a handoff and quality pass, not a security pass, and the two are deliberately not
+merged: a hardcoded hex colour and a hardcoded API key look alike and are not the same finding.
+
+Use it when the question is "can an engineer take this over?". Use this skill when the question is
+"can someone else read the data?". A prototype heading for production usually needs both, in that
+order — a component nobody can maintain is where a fixed check quietly comes back.
