@@ -61,8 +61,9 @@ separate files.
 | `references/payments.md` | money moves, or a payment provider is wired in |
 | `references/mobile.md` | there is an iOS, Android or React Native client |
 | `references/cost.md` | it calls a metered service — a model, SMS, email, images |
+| `references/model-features.md` | the app itself ships a model — a chat box, a summariser, RAG, tools |
 | `references/operations.md` | it is deployed anywhere at all |
-| `references/agent-pipeline.md` | an agent wrote the code, or still has access to the repo |
+| `references/agent-pipeline.md` | an agent **wrote** the code, or still has access to the repo |
 | `references/generators.md` | you know which tool generated it — read it first, it routes the rest |
 
 Two files are not domains and are always relevant: `references/human-checks.md` lists what no script

@@ -61,7 +61,8 @@ fetches, HTML returned, permission decisions); connect the two. What stays conne
 
 **Third, check the domains that apply.** Secrets first, always — one live leaked key outranks
 everything else. Then: client code, identity, authorization, data stores, input and output,
-payments, mobile, cost, operations, and the agent pipeline if an agent wrote this code.
+payments, mobile, cost, operations, the agent pipeline if an agent wrote this code, and model
+features if the app itself ships one.
 
 On client code specifically: everything reaching the browser is public and editable. Treat a
 decision computed there as not made. `{user.role === "admin" && <AdminPanel/>}` is an interface
@@ -69,6 +70,15 @@ decision, never a control — check whether the route behind it answers an ordin
 list response in full and ask which fields the screen uses, because rows filtered in JavaScript
 after the response have already left the server. Flag tokens and user objects in `localStorage`,
 which any script on the origin can read.
+
+If the app ships a model feature — a chat box, a summariser, RAG, a bot with tools — treat its
+output as user input that took a detour. List every string that reaches the context window, not just
+the chat box: uploads, retrieved documents, fetched pages, tool results, earlier turns. In an app
+with shared documents, whoever can add one writes into someone else's prompt. Then follow the
+response: if it reaches a query, a shell command, raw HTML, `eval` or a tool with a real effect
+without being parsed into a shape the app defined, that is the finding. Ask what each tool runs as —
+a tool holding the app's authority instead of the caller's turns one injected document into every
+record. And read the system prompt for anything that should not be public, because it is.
 
 **Fourth, rank by exploitability, not by theme:** exploitable now by anyone unauthenticated, then a
 legitimate user against another user, then requires access they do not have, then hardening.

@@ -5,9 +5,10 @@
 # in your frontend by design. Row Level Security "on" with no policy, or with only
 # a SELECT policy, still leaves writes open. This probes all four commands.
 #
-# A request that does not complete, or that the server fails on, is reported as an
-# error. It is never counted as a refusal — an unreachable host must not read as a
-# locked one.
+# A request that does not complete, that the server fails on, or that it rejects as
+# malformed is reported as inconclusive. None of those is a refusal — an
+# unreachable host, and a table whose primary key is not called "id", must not
+# read as a locked one.
 #
 # Only run this against a project you own or are authorized to test. The insert,
 # update and delete probes send real writes.
@@ -17,11 +18,12 @@
 # Exit:  0 everything refused · 1 something is open · 2 result incomplete
 set -uo pipefail
 
-[ $# -lt 3 ] && { sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'; exit 64; }
+[ $# -lt 3 ] && { sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; exit 64; }
 
 URL="${1%/}"; KEY="$2"; shift 2
 FAIL=0
 UNREACHED=0
+UNTESTED=0
 
 probe() { # method path label [body]
   local code
@@ -39,7 +41,13 @@ probe() { # method path label [body]
   elif [[ "$code" =~ ^2 ]]; then
     # 2xx means the anonymous client got through.
     printf '  \033[31mOPEN\033[0m   %-6s %s  (HTTP %s)\n' "$1" "$3" "$code"; FAIL=1
+  elif [ "$code" = "400" ] || [ "$code" = "404" ]; then
+    # The request never reached an access decision. The usual cause is a primary
+    # key not called "id", which makes the update and delete probes malformed.
+    printf '  ?      %-6s %s  (HTTP %s — request rejected, access not tested)\n' "$1" "$3" "$code"
+    UNTESTED=1
   else
+    # 401, 403 and friends: the access rules answered, and they said no.
     printf '  ok     %-6s %s  (HTTP %s)\n' "$1" "$3" "$code"
   fi
 }
@@ -64,6 +72,12 @@ fi
 if [ $UNREACHED -eq 1 ]; then
   echo "Could not complete every probe — see ERROR above. Nothing here shows the"
   echo "database is locked down; check the project URL, the key and the network."
+  exit 2
+fi
+if [ $UNTESTED -eq 1 ]; then
+  echo "Some probes were rejected as malformed before any access decision — see ? above."
+  echo "If the primary key is not called \"id\", re-run against the real column name;"
+  echo "until then, write access on those tables is untested, not refused."
   exit 2
 fi
 echo "All probed commands refused the anonymous key."
