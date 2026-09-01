@@ -38,6 +38,22 @@ update, or the client can set `role`, `user_id` or `credits`.
 
 New routes deny by default.
 
+## Client code
+
+Everything that reaches the browser is public and editable — the bundle, the network calls, the
+storage. Never compute an answer there that the server needs to trust.
+
+Hiding a component behind `user.role === "admin"` is an interface decision, not a control. The route
+behind it needs its own check, written at the same time.
+
+Never send a record to the client that the screen does not display. Filter in the query, not in
+JavaScript after the response — a row that arrives is a row that leaked.
+
+Never put a token, a key, a password or a whole user object in `localStorage` or `sessionStorage`;
+any script on the origin can read them. Use an `HttpOnly` cookie for the session.
+
+Client-side validation is for the user. Run the same schema on the server, at the boundary.
+
 ## Data stores
 
 When creating a table on a managed platform, enable row-level security and write a policy **per

@@ -12,31 +12,37 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - name: SKILL.md frontmatter is valid
+      - name: Every skill has valid frontmatter
         run: |
           python3 - <<'PY'
           import re, yaml, pathlib
-          p = pathlib.Path("skills/vibe-security-check/SKILL.md")
-          m = re.match(r"^---\n(.*?)\n---\n", p.read_text(), re.S)
-          assert m, "no YAML frontmatter"
-          d = yaml.safe_load(m.group(1))
-          for k in ("name", "description", "license"):
-              assert d.get(k), f"missing {k}"
-          assert d["name"] == "vibe-security-check", d["name"]
-          print(f"ok: {d['name']}, description {len(d['description'])} chars")
+          skills = sorted(p for p in pathlib.Path("skills").iterdir() if p.is_dir())
+          assert skills, "no skills found"
+          for d in skills:
+              p = d / "SKILL.md"
+              assert p.exists(), f"{d} has no SKILL.md"
+              m = re.match(r"^---\n(.*?)\n---\n", p.read_text(), re.S)
+              assert m, f"{p}: no YAML frontmatter"
+              f = yaml.safe_load(m.group(1))
+              for k in ("name", "description", "license"):
+                  assert f.get(k), f"{p}: missing {k}"
+              assert f["name"] == d.name, f"{p}: name {f['name']!r} != directory {d.name!r}"
+              print(f"ok: {f['name']}, description {len(f['description'])} chars")
           PY
 
-      - name: Every reference the skill routes to exists
+      - name: Every reference a skill routes to exists
         run: |
           python3 - <<'PY'
           import re, pathlib
-          base = pathlib.Path("skills/vibe-security-check")
-          refs = set(re.findall(r"references/([a-z-]+\.md)", (base / "SKILL.md").read_text()))
-          missing = [r for r in refs if not (base / "references" / r).exists()]
-          assert not missing, f"SKILL.md routes to missing files: {missing}"
-          print(f"ok: {len(refs)} references, all present")
+          for d in sorted(p for p in pathlib.Path("skills").iterdir() if p.is_dir()):
+              refs = set(re.findall(r"references/([a-z-]+\.md)", (d / "SKILL.md").read_text()))
+              missing = [r for r in refs if not (d / "references" / r).exists()]
+              assert not missing, f"{d.name}/SKILL.md routes to missing files: {missing}"
+              orphans = [f.name for f in sorted((d / "references").glob("*.md")) if f.name not in refs]
+              assert not orphans, f"{d.name} has references nothing routes to: {orphans}"
+              print(f"ok: {d.name}, {len(refs)} references, all present and all reachable")
           PY
 
       - name: Scripts parse and are executable
