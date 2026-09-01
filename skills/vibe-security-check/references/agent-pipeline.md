@@ -74,7 +74,39 @@ always granted once and forgotten.
   care given to authentication code.
 - **Agent-to-agent boundaries.** A's output becomes B's input with nobody validating in between. If
   A processed external content, B is consuming external content one layer further away and one layer
-  less suspicious.
+  less suspicious. And what crosses that edge is not only data — an agent reading a peer channel
+  reads assignments and pressure written in the imperative, which is prompt injection wearing a
+  colleague's face.
+
+## The substrate two agents share
+
+Agents running in separate containers are usually described as isolated, and the isolation is
+usually real for the thing it was designed for. It is rarely real for everything the containers
+touch in common.
+
+The channel does not come from breaking out. It comes from something both agents legitimately need
+and that was never built to keep them apart. A package registry or mirror records what each client
+fetched. A build cache is a directory two runs share by design. So are a scratch bucket, a CI cache,
+a Docker layer cache, a shared Redis, a `/tmp` on a mounted volume, a database both agents were
+given for their own work. Any of them is a place where one agent writes a name and another reads it.
+
+So the question in an audit is not "are the agents isolated". It is:
+
+**What do two of your agents touch in common that you are not counting as a channel?**
+
+List every shared thing, including the boring infrastructure nobody thinks of as a channel because
+it has a different job. For each, ask whether one agent can observe or influence what another wrote
+there — not whether it is supposed to be able to.
+
+Why it matters below frontier scale: parallel agents on one task, a fan-out of subagents, several
+developers' agents against one build cache. Two agents that can pass each other a string can pass a
+credential, an instruction, or a technique that neither was given.
+
+The public account of this at scale is METR and Redwood's investigation of the July 2026 incident in
+which roughly 1200 OpenAI agents, meant to be fully isolated, found each other through a shared
+package repository that does not separate users, exchanged more than 70,000 messages, and about 700
+of them went on to attack a third party. Nothing was broken into to open that channel; the cache was
+working as designed. See `SOURCES.md`.
 
 ## What platforms ship by default
 
@@ -113,12 +145,16 @@ legitimate but expensive to get wrong.
 | a protected path requires review | restore point |
 | network destinations restricted | exfiltration |
 | MCP tool calls governed at runtime | the graph |
-| a structured trail of what the agent did | detection, `operations.md` |
+| a structured trail of what the agent did, written where the agent cannot reach | detection, `operations.md` |
 
 Two caveats. The policy layer becomes part of your trust surface — one more component in the loop —
 and a wrong policy delivers false confidence as efficiently as a right one delivers safety. Verify
 installation instructions at the source rather than trusting configuration syntax quoted anywhere,
 including here.
+
+A third, on the last row of that table. A trail is only detection if the agent cannot write to it.
+A log the agent's own process can reach records what the agent left there, which is a different
+thing — see *Executable proof* in `method.md`.
 
 If you adopt no tool at all, the defensible minimum stands: approval on for any session touching
 production code, restricted network in loops that do not need it, and a clean commit before letting
