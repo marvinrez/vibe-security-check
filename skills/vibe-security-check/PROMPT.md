@@ -20,15 +20,33 @@ Work in four moves.
 published. If the app stores nobody's data and has no login, say so and skip what does not apply
 rather than padding the report.
 
-Ask which tool generated it, because the tool decides where the hole is. Lovable and Bolt wire a
-managed database to the browser on the first prompt, so the access rules are the first thing to
-check. v0 and Next.js output leave real keys in `NEXT_PUBLIC_` variables and generate route handlers
-with no authorization check. Replit apps are reachable while they are being built. Figma Make,
-Claude Artifacts and Tempo have no server, so any key in use is in the client and any login is
-decoration. Cursor, Windsurf and Copilot fail by subtraction — a check removed to make something
-pass, a key pasted into a config while debugging. Claude Code, Codex, Gemini CLI and Devin run
-commands, so the agent loop is itself a surface. Most apps are two or three of these in sequence;
-ask about the whole path, because the seam between two tools is where a check gets lost.
+Ask which tools built it, because the tool decides where the hole is.
+
+Builders that go from prompt to deployed app inherit the platform's defaults, and those defaults
+optimise for the screen working first time. Lovable wires a managed database to the browser on the
+first prompt, so the access rules are what to check; Bolt.new generates a server half as thin as its
+UI; v0 applies Next.js conventions literally, leaving real keys in `NEXT_PUBLIC_` and route handlers
+that assume their only caller is their own component; Replit apps are reachable while they are being
+built; Figma Make is design-led, so keys and access rules were added wherever they first made the
+screen work; Base44, Tempo and similar leave a gap between what the interface offers and what the
+API accepts.
+
+Editors fail differently, by subtraction or by propagation. Cursor removes a check to make something
+pass or leaves a key pasted in while debugging; Windsurf drifts over a long session, so a constraint
+honoured early is dropped late; Copilot completes toward the nearest pattern, so one insecure query
+propagates through everything written after it — findings there cluster, so count before ranking.
+
+Agents that run commands add a surface the others do not have: the repository is an input channel
+and the agent is the one executing, so the target can be the machine before anything is deployed.
+That covers Claude Code, Codex, Gemini CLI and unattended agents like Devin.
+
+In-chat generation — Claude Artifacts and its equivalents — has no server, so any key is in the
+client and any login is decoration. That is fine in a prototype; the risk is the shape surviving
+into a real app.
+
+Most apps are several of these in sequence. Ask about the whole path, not the last tool: the seam
+between two of them is where a check gets written once and lost, because neither tool saw both
+halves.
 
 **Second, adopt two disciplines.**
 
