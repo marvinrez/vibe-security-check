@@ -107,11 +107,22 @@ limited, per account and per address.
 `model`, `max_tokens` and equivalent cost parameters are set on the server. Never accept them from
 the client.
 
-## Model output
+## Model features
 
 Treat a model's response as untrusted input. Do not place it into a query, into HTML, into a shell
 command, or into a tool call with real effects without the same validation you would apply to
-anything a user typed.
+anything a user typed. Parse it into a shape you defined, or map it onto an allowlist of actions —
+an instruction in the prompt is not a control, because instructions are what injection overwrites.
+
+Everything that reaches the context window is an input channel, not just the chat box: uploads,
+retrieved documents, fetched pages, tool results, earlier turns. In an app with shared documents,
+whoever can add one can write into someone else's prompt.
+
+Every tool the model can call runs with the calling user's authority, never the app's. Anything
+irreversible — send, refund, delete, publish — needs a confirmation or a cap outside the model's
+control.
+
+Never put a credential, an internal URL or a business rule in a system prompt. Assume it is public.
 
 ## Errors and logs
 

@@ -93,6 +93,8 @@ serve db-locked 18734
 "$SCRIPTS/anon-key-probe.sh" http://127.0.0.1:18733 anon-key todos >/dev/null 2>&1; check "flags a database open to the anon key" 1 "$?"
 "$SCRIPTS/anon-key-probe.sh" http://127.0.0.1:18734 anon-key todos >/dev/null 2>&1; check "passes a database that refuses it"    0 "$?"
 "$SCRIPTS/anon-key-probe.sh" http://127.0.0.1:9     anon-key todos >/dev/null 2>&1; check "reports incomplete, not clean, on an unreachable host" 2 "$?"
+serve db-400 18735
+"$SCRIPTS/anon-key-probe.sh" http://127.0.0.1:18735 anon-key todos >/dev/null 2>&1; check "does not read a malformed-request 400 as a refusal"        2 "$?"
 
 echo
 echo "$PASS checks passed."

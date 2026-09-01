@@ -24,3 +24,10 @@ const claims = jwt.verify(token, process.env.JWT_SECRET!);
 const event = stripe.webhooks.constructEvent(req.rawBody, sig, secret);
 
 app.use(cors({ origin: ["https://app.example.com"], credentials: true }));
+
+async function agentStep(prompt: string) {
+  const completion = await openai.chat.completions.create({ model: "gpt-4", messages: [] });
+  // The response is parsed into a shape we defined before anything acts on it.
+  const { action } = CommandSchema.parse(completion.choices[0].message.content);
+  exec(ALLOWED_COMMANDS[action]);
+}

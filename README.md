@@ -34,10 +34,10 @@ maintain is where a fixed check quietly comes back. `vibe-lint` was
 
 ## What is in the box
 
-**A skill that dispatches instead of dumping.** A short `SKILL.md` routes to twelve domain
+**A skill that dispatches instead of dumping.** A short `SKILL.md` routes to thirteen domain
 references loaded only when they apply — secrets, client code, identity, authorization, data stores,
-input and output, payments, mobile, cost, operations, the agent pipeline, and the generator that
-wrote it. Nothing loads what an app does not have.
+input and output, payments, mobile, cost, model features, operations, the agent pipeline, and the
+generator that wrote it. Nothing loads what an app does not have.
 
 **Tool-aware routing.** [`references/generators.md`](skills/vibe-security-check/references/generators.md)
 maps every major generator to where its perimeter usually breaks, in three families that fail in
@@ -57,10 +57,11 @@ into CI unchanged.
 | `history-secrets.sh` | is there a secret anywhere in git history? |
 | `exposed-paths.sh` | is `.git`, `.env` or a debug surface served in production? |
 
-**Eleven Semgrep rules** for the mistakes specific to AI-generated code: the service-role key that
+**Thirteen Semgrep rules** for the mistakes specific to AI-generated code: the service-role key that
 bypasses every rule, the model and token limit taken from the client, the charge amount posted by
 the browser, the webhook signature verified against a parsed body, mass assignment straight from the
-request. Paired fixtures pin the behaviour, and CI enforces it per rule: every rule in the file must
+request, and a taint rule for a model's response reaching a query, a shell command, raw HTML or
+`eval` without being parsed into a shape the app defined. Paired fixtures pin the behaviour, and CI enforces it per rule: every rule in the file must
 fire on a vulnerable fixture, and none may fire on a safe one. A rule added without a fixture fails
 the build.
 
@@ -71,6 +72,10 @@ on what is clean, and an unreachable host reports as incomplete rather than as a
 ```bash
 semgrep --config skills/vibe-security-check/rules/vibe-security.yaml .
 ```
+
+Semgrep's default ignore list skips directories named `tests/`, so pointing it at `rules/tests/`
+returns nothing and looks like the rules are broken. Pass the fixture files individually, the way
+CI does.
 
 **A prevention layer.** [`RULES.md`](RULES.md) copies into a project as `AGENTS.md` or `CLAUDE.md` so
 flaws are less likely to be written in the first place. It is not a control, and it says so.

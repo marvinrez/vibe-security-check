@@ -40,3 +40,10 @@ const claims = jwt.decode(token);
 
 // permissive-cors-with-credentials
 app.use(cors({ origin: "*", credentials: true }));
+
+// model-output-into-sink
+async function agentStep(prompt: string) {
+  const completion = await openai.chat.completions.create({ model: "gpt-4", messages: [] });
+  const command = completion.choices[0].message.content;
+  exec(command);
+}

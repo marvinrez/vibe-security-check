@@ -6,6 +6,7 @@ shape the scripts have to tell apart.
     spa         a single-page-app host: 200 with index.html for every path
     db-open     a database API answering 2xx to every method (no access rules)
     db-locked   a database API answering 401 to every method
+    db-400      a database API rejecting every request as malformed
 
 Usage: fake-host.py <mode> <port>
 """
@@ -40,6 +41,11 @@ class Handler(BaseHTTPRequestHandler):
             self.respond(200, b"[]")
         elif MODE == "db-locked":
             self.respond(401, b'{"message":"permission denied"}')
+        elif MODE == "db-400":
+            # What PostgREST answers when the column in the filter does not exist,
+            # which is every update and delete probe on a table keyed by anything
+            # other than "id". It is not a refusal.
+            self.respond(400, b'{"message":"column notes.id does not exist"}')
         else:
             raise SystemExit(f"unknown mode: {MODE}")
 

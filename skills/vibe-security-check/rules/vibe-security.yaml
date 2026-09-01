@@ -8,8 +8,11 @@
 #   semgrep --config rules/vibe-security.yaml .
 #
 # Written for this project. No rule here is derived from another ruleset.
-# Fixtures in rules/tests/ pin the behaviour: vulnerable.ts must trigger every
-# rule, safe.ts must trigger none.
+#
+# Fixtures in rules/tests/ pin the behaviour, and CI enforces it per rule: every
+# rule here must fire on a vulnerable fixture, and none may fire on a safe one.
+# Semgrep's default ignore list skips directories named tests/, so scanning that
+# directory returns nothing — pass the fixture files one at a time.
 
 rules:
   - id: service-role-key-outside-server
@@ -152,3 +155,65 @@ rules:
     pattern-either:
       - pattern: '{..., origin: "*", ..., credentials: true, ...}'
       - pattern: '{..., credentials: true, ..., origin: "*", ...}'
+
+  - id: model-output-into-sink
+    languages: [javascript, typescript]
+    severity: ERROR
+    mode: taint
+    message: >-
+      A model's response reaches a query, a shell command, raw HTML or eval without being
+      validated. Whoever can influence the prompt — a user message, a retrieved document, a page
+      the app fetched — can influence what runs. Treat the response as untrusted input: parse it
+      into a shape you defined, or map it onto an allowlist of actions, before it reaches anything
+      with an effect.
+    pattern-sources:
+      - pattern-either:
+          - pattern: await $C.chat.completions.create(...)
+          - pattern: await $C.messages.create(...)
+          - pattern: await $C.responses.create(...)
+          - pattern: await generateText(...)
+          - pattern: await generateObject(...)
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: $S.parse(...)
+          - pattern: $S.safeParse(...)
+          - pattern: $S.validate(...)
+    pattern-sinks:
+      - pattern-either:
+          - pattern: eval(...)
+          - pattern: exec(...)
+          - pattern: execSync(...)
+          - pattern: $CP.exec(...)
+          - pattern: $CP.execSync(...)
+          - pattern: $DB.query(...)
+          - pattern: $DB.raw(...)
+          - pattern: $EL.innerHTML = $V
+          - pattern: $EL.outerHTML = $V
+
+  - id: model-output-into-sink-python
+    languages: [python]
+    severity: ERROR
+    mode: taint
+    message: >-
+      A model's response reaches a shell command, a query or eval without being validated. Whoever
+      can influence the prompt can influence what runs. Parse the response into a shape you defined,
+      or map it onto an allowlist of actions, before it reaches anything with an effect.
+    pattern-sources:
+      - pattern-either:
+          - pattern: $C.chat.completions.create(...)
+          - pattern: $C.messages.create(...)
+          - pattern: $C.responses.create(...)
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: $S.model_validate(...)
+          - pattern: $S.model_validate_json(...)
+          - pattern: $S.parse_obj(...)
+    pattern-sinks:
+      - pattern-either:
+          - pattern: eval(...)
+          - pattern: exec(...)
+          - pattern: os.system(...)
+          - pattern: subprocess.run(...)
+          - pattern: subprocess.call(...)
+          - pattern: subprocess.Popen(...)
+          - pattern: $CUR.execute(...)
