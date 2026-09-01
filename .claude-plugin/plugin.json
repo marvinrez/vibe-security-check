@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "vibe-security-check",
+  "displayName": "Vibe Security Check",
+  "version": "2.1.0",
+  "description": "Security audit for apps built with AI — the app you ship and the pipeline that built it — plus vibe-lint, the handoff pass on the same generated code.",
+  "author": {
+    "name": "Marcos Rezende",
+    "url": "https://marcosrezende.com"
+  },
+  "homepage": "https://github.com/marvinrez/vibe-security-check",
+  "repository": "https://github.com/marvinrez/vibe-security-check",
+  "license": "MIT",
+  "keywords": [
+    "security",
+    "audit",
+    "vibe-coding",
+    "ai-generated-code",
+    "prompt-injection",
+    "code-review",
+    "handoff"
+  ]
+}

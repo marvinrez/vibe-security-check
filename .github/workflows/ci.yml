@@ -14,6 +14,35 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Plugin and marketplace manifests agree with the tree
+        run: |
+          python3 - <<'PY'
+          import json, pathlib
+
+          plugin = json.loads(pathlib.Path(".claude-plugin/plugin.json").read_text())
+          market = json.loads(pathlib.Path(".claude-plugin/marketplace.json").read_text())
+
+          entries = [e for e in market["plugins"] if e["name"] == plugin["name"]]
+          assert entries, f"marketplace.json has no entry for {plugin['name']!r}"
+          entry = entries[0]
+          assert entry["source"] == "./", f"root plugin must be sourced from ./, got {entry['source']!r}"
+          assert entry.get("version") == plugin.get("version"), (
+              f"version drift: plugin.json {plugin.get('version')!r} vs marketplace entry {entry.get('version')!r}")
+
+          # A plugin with no `skills` field loads skills/ — so the directory is the contract.
+          assert "skills" not in plugin, "plugin.json overrides the default skills/ path; update this check"
+          shipped = sorted(d.name for d in pathlib.Path("skills").iterdir() if (d / "SKILL.md").exists())
+          assert shipped, "no skills would be discovered"
+          print(f"ok: {plugin['name']} {plugin.get('version')} ships {len(shipped)} skills: {', '.join(shipped)}")
+          PY
+
+      - name: Manifests pass claude plugin validate --strict
+        run: |
+          curl -fsSL https://claude.ai/install.sh | bash -s latest
+          export PATH="$HOME/.local/bin:$PATH"
+          claude plugin validate .claude-plugin/plugin.json --strict
+          claude plugin validate . --strict
+
       - name: Every skill has valid frontmatter
         run: |
           python3 - <<'PY'

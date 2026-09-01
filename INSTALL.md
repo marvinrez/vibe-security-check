@@ -3,7 +3,22 @@
 Plain Markdown, POSIX shell and Semgrep YAML. No vendor lock-in, no account, no API key. Works with
 hosted models and with local open-source ones.
 
-## Claude Code, or anything that reads SKILL.md
+## Claude Code — as a plugin
+
+```bash
+/plugin marketplace add marvinrez/vibe-security-check
+/plugin install vibe-security-check@marvinrez-skills
+```
+
+Installs both skills and keeps them updatable with `/plugin update vibe-security-check`, which the
+copy below does not — a local copy never learns about a fix.
+
+They cost about 450 tokens of context per session while idle. The bodies load only when a skill
+fires.
+
+## Claude Code — as plain files
+
+If you would rather not install a plugin, or you want one skill and not the other:
 
 ```bash
 mkdir -p ~/.claude/skills
