@@ -90,44 +90,8 @@ jobs:
       - name: Scripts behave — findings, clean passes, and unreachable hosts
         run: skills/vibe-security-check/scripts/tests/run.sh
 
-      - name: Every Semgrep rule fires on a vulnerable fixture and none on a safe one
+      - name: Every Semgrep rule fires on exactly its annotated lines, and none on a safe fixture
         run: |
           pip install --quiet semgrep
           cd skills/vibe-security-check
-          # Semgrep's default ignore list skips directories named tests/, so the
-          # fixtures are passed one file at a time rather than as a directory.
-          scan() {
-            semgrep --config rules/vibe-security.yaml --metrics=off \
-                    --disable-version-check --no-git-ignore --quiet "$1" --json
-          }
-          OUT=$(mktemp -d); export OUT
-          scan rules/tests/vulnerable.ts > "$OUT/vuln-ts.json"
-          scan rules/tests/vulnerable.py > "$OUT/vuln-py.json"
-          scan rules/tests/safe.ts       > "$OUT/safe-ts.json"
-          scan rules/tests/safe.py       > "$OUT/safe-py.json"
-          python3 - <<'PY'
-          import json, os, re, pathlib, sys
-
-          out = os.environ["OUT"]
-          defined = set(re.findall(r"^  - id: (\S+)", pathlib.Path("rules/vibe-security.yaml").read_text(), re.M))
-
-          def ids(name):
-              with open(f"{out}/{name}.json") as fh:
-                  return {r["check_id"].split(".")[-1] for r in json.load(fh)["results"]}
-
-          fired = ids("vuln-ts") | ids("vuln-py")
-          quiet = ids("safe-ts") | ids("safe-py")
-
-          ok = True
-          uncovered = sorted(defined - fired)
-          if uncovered:
-              print(f"rules with no vulnerable fixture: {uncovered}"); ok = False
-          unknown = sorted(fired - defined)
-          if unknown:
-              print(f"findings from rules not in the file: {unknown}"); ok = False
-          if quiet:
-              print(f"false positives on the safe fixtures: {sorted(quiet)}"); ok = False
-          if ok:
-              print(f"ok: all {len(defined)} rules fire on a vulnerable fixture, 0 on the safe ones")
-          sys.exit(0 if ok else 1)
-          PY
+          python3 rules/tests/check.py

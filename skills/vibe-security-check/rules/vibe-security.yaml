@@ -9,10 +9,18 @@
 #
 # Written for this project. No rule here is derived from another ruleset.
 #
-# Fixtures in rules/tests/ pin the behaviour, and CI enforces it per rule: every
-# rule here must fire on a vulnerable fixture, and none may fire on a safe one.
-# Semgrep's default ignore list skips directories named tests/, so scanning that
-# directory returns nothing — pass the fixture files one at a time.
+# Fixtures in rules/tests/ pin the behaviour line by line: each line a rule must
+# fire on carries a "ruleid:" comment above it, a vulnerable fixture may produce
+# no finding that is not annotated, and a safe one may produce none at all.
+# rules/tests/check.py enforces that, and CI runs it. Semgrep's default ignore
+# list skips directories named tests/, so the fixtures are scanned one file at a
+# time rather than as a directory.
+#
+# The three rules about values the client sent are taint rules, so they follow
+# the value through destructuring, `await req.json()` and arithmetic. Taint stops
+# at a lookup in an UPPER_CASE table (an allowlist) and at a find or retrieve
+# call (the record the server looked up). Semgrep's free engine follows data
+# within one function only.
 
 rules:
   - id: service-role-key-outside-server
@@ -28,7 +36,7 @@ rules:
           - pattern: "import.meta.env.$KEY"
       - metavariable-regex:
           metavariable: $KEY
-          regex: .*(SERVICE_ROLE|SERVICE_KEY|ADMIN_KEY|FIREBASE_ADMIN).*
+          regex: .*(SERVICE_ROLE|SERVICE_KEY|ADMIN_KEY|FIREBASE_ADMIN|SUPABASE_SECRET).*
     paths:
       exclude:
         - "**/api/**"
@@ -44,38 +52,84 @@ rules:
     message: >-
       A secret-looking name exposed through a public environment prefix. Anything prefixed
       NEXT_PUBLIC_, VITE_, EXPO_PUBLIC_ or REACT_APP_ is compiled into the browser bundle as plain
-      text. Move it server-side and have the browser call your own route.
+      text, and a model provider's API key there lets anyone spend on your account. Move it
+      server-side and have the browser call your own route.
     patterns:
       - pattern-either:
           - pattern: "process.env.$KEY"
           - pattern: "import.meta.env.$KEY"
+      # Secret, password and private-key names are always findings. API keys and tokens are,
+      # except for the services whose client keys are public by design.
       - metavariable-regex:
           metavariable: $KEY
-          regex: ^(NEXT_PUBLIC|VITE|EXPO_PUBLIC|REACT_APP)_.*(SECRET|SERVICE_ROLE|PRIVATE|PASSWORD).*
+          regex: ^(NEXT_PUBLIC|VITE|EXPO_PUBLIC|REACT_APP)_(.*(SECRET|SERVICE_ROLE|PRIVATE|PASSWORD).*|(?!.*(PUBLISHABLE|ANON|PUBLIC|SITE|SEARCH|FIREBASE|MAPS|MAPBOX|POSTHOG|SENTRY|ALGOLIA|CLERK|MEASUREMENT|REVENUECAT|ONESIGNAL|AMPLITUDE|SEGMENT|MIXPANEL|PUSHER)).*(API_KEY|APIKEY|ACCESS_KEY|AUTH_TOKEN|ACCESS_TOKEN).*)$
 
   - id: cost-parameter-from-client
     languages: [javascript, typescript]
     severity: ERROR
+    mode: taint
     message: >-
       A cost parameter taken from the request. An attacker swaps the cheap model for the most
       expensive one, or sets the token limit to its maximum, inside a perfectly authenticated
-      request — so no permission check notices. Set these on the server.
-    pattern-either:
-      - pattern: "{..., model: $R.body.$X, ...}"
-      - pattern: "{..., model: $R.query.$X, ...}"
-      - pattern: "{..., max_tokens: $R.body.$X, ...}"
-      - pattern: "{..., maxTokens: $R.body.$X, ...}"
+      request — so no permission check notices. Set these on the server, or map the client's
+      choice onto an allowlist.
+    pattern-sources: &request-sources
+      - patterns:
+          - pattern-either:
+              - pattern: $R.body
+              - pattern: $R.query
+          - metavariable-regex:
+              metavariable: $R
+              regex: ^(.*[Rr]eq(uest)?|event)$
+      - patterns:
+          - pattern-either:
+              - pattern: await $R.json()
+              - pattern: await $R.formData()
+          - metavariable-regex:
+              metavariable: $R
+              regex: ^.*[Rr]eq(uest)?$
+    pattern-sanitizers: &server-lookups
+      - patterns:
+          - pattern: $TABLE[$K]
+          - metavariable-regex:
+              metavariable: $TABLE
+              regex: ^[A-Z][A-Z0-9_]*$
+      - patterns:
+          - pattern: $X.$FIND(...)
+          - metavariable-regex:
+              metavariable: $FIND
+              regex: ^(find|findOne|findUnique|findFirst|findById|findByPk|retrieve|lookup)$
+    pattern-sinks:
+      - patterns:
+          - pattern-inside: "{..., $PARAM: $V, ...}"
+          # The destructuring that pulls the value out of the request is not a use of it.
+          - pattern-not-inside: "$P = $R.body"
+          - pattern-not-inside: "$P = $R.query"
+          - pattern-not-inside: "$P = await $R.json()"
+          - metavariable-regex:
+              metavariable: $PARAM
+              regex: ^(model|max_tokens|maxTokens|maxOutputTokens|max_completion_tokens|max_output_tokens)$
+          - focus-metavariable: $V
 
   - id: price-from-client
     languages: [javascript, typescript]
     severity: ERROR
+    mode: taint
     message: >-
-      A charge amount taken from the request body. The browser can post any number. Look the price
-      up server-side from an item identifier instead.
-    pattern-either:
-      - pattern: "{..., amount: $R.body.$X, ...}"
-      - pattern: "{..., unit_amount: $R.body.$X, ...}"
-      - pattern: "{..., price: $R.body.$X, ...}"
+      A charge amount taken from the request. The browser can post any number. Look the price up
+      server-side from an item identifier instead.
+    pattern-sources: *request-sources
+    pattern-sanitizers: *server-lookups
+    pattern-sinks:
+      - patterns:
+          - pattern-inside: "{..., $PARAM: $V, ...}"
+          - pattern-not-inside: "$P = $R.body"
+          - pattern-not-inside: "$P = $R.query"
+          - pattern-not-inside: "$P = await $R.json()"
+          - metavariable-regex:
+              metavariable: $PARAM
+              regex: ^(amount|unit_amount|unit_amount_decimal)$
+          - focus-metavariable: $V
 
   - id: mass-assignment-from-body
     languages: [javascript, typescript]
@@ -84,10 +138,42 @@ rules:
       A whole request body passed into a write. If the model has a role, tenant or credit field,
       the client can set it. Use an explicit allowlist of writable fields per endpoint.
     pattern-either:
-      - pattern: "$M.update($R.body)"
-      - pattern: "$M.create($R.body)"
-      - pattern: "$M.updateOne($X, $R.body)"
-      - pattern: "$M.findByIdAndUpdate($X, $R.body)"
+      # The body itself, or the body spread into the object being written.
+      - patterns:
+          - pattern-either: &writes
+              - pattern: $M.update($B, ...)
+              - pattern: $M.create($B, ...)
+              - pattern: $M.insert($B, ...)
+              - pattern: $M.upsert($B, ...)
+              - pattern: $M.updateOne($X, $B, ...)
+              - pattern: $M.updateMany($X, $B, ...)
+              - pattern: $M.findByIdAndUpdate($X, $B, ...)
+              - pattern: $M.findOneAndUpdate($X, $B, ...)
+              - pattern: $M.set($B)
+              - patterns:
+                  - pattern: "$M.$OP({..., data: $B, ...})"
+                  - metavariable-regex:
+                      metavariable: $OP
+                      regex: ^(create|createMany|update|updateMany|upsert)$
+          - metavariable-regex:
+              metavariable: $B
+              regex: ^([\w.]*\.body$|\{[\s\S]*\.\.\.\s*[\w.]*\.body\b)
+      # A variable holding the body.
+      - patterns:
+          - pattern-either: *writes
+          - pattern-either:
+              - pattern-inside: |
+                  $B = $R.body;
+                  ...
+              - pattern-inside: |
+                  $B = await $R.json();
+                  ...
+              - pattern-inside: |
+                  $B = JSON.parse($R.body);
+                  ...
+          - metavariable-regex:
+              metavariable: $R
+              regex: ^(.*[Rr]eq(uest)?|event)$
 
   - id: raw-html-with-variable
     languages: [javascript, typescript]
@@ -95,13 +181,19 @@ rules:
     message: >-
       Raw HTML injection with a non-literal value. Frameworks escape by default, so this is an
       explicit opt-out and needs both a reason and a sanitizer. Confirm the value cannot carry user
-      input.
+      input or model output, or pass it through DOMPurify first.
     patterns:
       - pattern-either:
           - pattern: "$EL.innerHTML = $V"
           - pattern: "$EL.outerHTML = $V"
-      - pattern-not: '$EL.innerHTML = "..."'
-      - pattern-not: '$EL.outerHTML = "..."'
+          - pattern: "$EL.insertAdjacentHTML($POS, $V)"
+          - pattern: "document.write($V)"
+          # React's dangerouslySetInnerHTML={{ __html: ... }}
+          - pattern: "{..., __html: $V, ...}"
+      # Not a literal, and not already passed through a sanitizer.
+      - metavariable-regex:
+          metavariable: $V
+          regex: ^(?!("[^"]*"|'[^']*'|`[^`$]*`)$)(?!(DOMPurify|dompurify|purify)\.sanitize\(|sanitizeHtml\()
 
   - id: tls-verification-disabled
     languages: [javascript, typescript]
@@ -129,30 +221,73 @@ rules:
     languages: [javascript, typescript]
     severity: ERROR
     message: >-
-      Webhook signature verified against the parsed body. Verification must run on the raw bytes;
+      Webhook signature verified against a parsed body. Verification must run on the raw bytes;
       once a JSON parser has touched them the signature cannot match, and the usual workaround is
-      to stop verifying. Exempt this route from body parsing and pass the raw buffer.
-    pattern-either:
-      - pattern: "$S.webhooks.constructEvent($R.body, ...)"
-      - pattern: "$S.webhooks.constructEventAsync($R.body, ...)"
+      to stop verifying. In Express, mount this route with express.raw() so req.body is the raw
+      buffer; in a Next.js route handler, pass await req.text().
+    patterns:
+      - pattern-either:
+          - pattern: $S.webhooks.constructEvent(JSON.stringify(...), ...)
+          - pattern: $S.webhooks.constructEventAsync(JSON.stringify(...), ...)
+          - patterns:
+              - pattern-either:
+                  - pattern: $S.webhooks.constructEvent($R.body, ...)
+                  - pattern: $S.webhooks.constructEventAsync($R.body, ...)
+              # Stripe's documented Express handler: the route parses nothing.
+              - pattern-not-inside: $APP.$METHOD(..., express.raw(...), ...)
+              - pattern-not-inside: $APP.$METHOD(..., bodyParser.raw(...), ...)
 
   - id: jwt-decoded-without-verification
     languages: [javascript, typescript]
     severity: ERROR
     message: >-
-      A token decoded without verifying its signature. decode() reads the claims of anything,
-      including a token the attacker wrote. Use verify() with the secret or public key.
+      A token decoded without verifying its signature, in server code. decode() reads the claims of
+      anything, including a token the attacker wrote. Verify it with the secret or public key
+      (jwt.verify, or jose's jwtVerify) before trusting a claim. Reading your own token's expiry in
+      the browser is fine; an authorization decision is not.
     pattern-either:
-      - pattern: "jwt.decode($T)"
-      - pattern: "jwtDecode($T)"
+      # jsonwebtoken runs on the server.
+      - pattern: jwt.decode($T)
+      # jwt-decode is a browser library; it is a finding where it makes a server's decision.
+      - patterns:
+          - pattern: jwtDecode($T)
+          - pattern-either:
+              - pattern-inside: |
+                  export function middleware(...) { ... }
+              - pattern-inside: |
+                  export async function middleware(...) { ... }
+              - patterns:
+                  - pattern-either:
+                      - pattern-inside: |
+                          export function $HANDLER(...) { ... }
+                      - pattern-inside: |
+                          export async function $HANDLER(...) { ... }
+                  - metavariable-regex:
+                      metavariable: $HANDLER
+                      regex: ^(GET|POST|PUT|PATCH|DELETE)$
+              - patterns:
+                  - pattern-either:
+                      - pattern-inside: |
+                          ($REQ, $RES, ...) => { ... }
+                      - pattern-inside: |
+                          function $F($REQ, $RES, ...) { ... }
+                  - metavariable-regex:
+                      metavariable: $REQ
+                      regex: ^(req|request)$
 
   - id: permissive-cors-with-credentials
     languages: [javascript, typescript]
     severity: ERROR
     message: >-
-      Wildcard origin combined with credentials defeats origin protection entirely. Name the
-      origins you accept.
+      Credentials allowed for any origin. origin: true, or a callback that always says yes, reflects
+      whatever Origin the request sends, so every site can make credentialed requests and read the
+      answer. "*" with credentials is refused by browsers, so it only breaks the app — and the usual
+      fix is to switch to reflection. Name the origins you accept.
     pattern-either:
+      - pattern: '{..., origin: true, ..., credentials: true, ...}'
+      - pattern: '{..., credentials: true, ..., origin: true, ...}'
+      - pattern: '{..., origin: ($O, $CB) => $CB(null, true), ..., credentials: true, ...}'
+      - pattern: '{..., credentials: true, ..., origin: ($O, $CB) => $CB(null, true), ...}'
       - pattern: '{..., origin: "*", ..., credentials: true, ...}'
       - pattern: '{..., credentials: true, ..., origin: "*", ...}'
 
@@ -174,10 +309,26 @@ rules:
           - pattern: await generateText(...)
           - pattern: await generateObject(...)
     pattern-sanitizers:
+      # A schema the app defined. JSON.parse, marked.parse and the like check no shape —
+      # marked.parse turns the response into HTML.
+      - patterns:
+          - pattern-either:
+              - pattern: $S.parse(...)
+              - pattern: $S.safeParse(...)
+              - pattern: $S.validate(...)
+          - metavariable-regex:
+              metavariable: $S
+              regex: ^(?!(JSON|marked|path|url|URL|qs|querystring|Date|yaml|YAML|toml|TOML|csv|Papa|showdown|parse5|cheerio)$)
+      # An allowlist: the response picks an entry, the app supplies the value.
+      - patterns:
+          - pattern: $TABLE[$K]
+          - metavariable-regex:
+              metavariable: $TABLE
+              regex: ^[A-Z][A-Z0-9_]*$
+      # HTML passed through a maintained sanitizer.
       - pattern-either:
-          - pattern: $S.parse(...)
-          - pattern: $S.safeParse(...)
-          - pattern: $S.validate(...)
+          - pattern: DOMPurify.sanitize(...)
+          - pattern: sanitizeHtml(...)
     pattern-sinks:
       - pattern-either:
           - pattern: eval(...)
@@ -185,10 +336,21 @@ rules:
           - pattern: execSync(...)
           - pattern: $CP.exec(...)
           - pattern: $CP.execSync(...)
-          - pattern: $DB.query(...)
-          - pattern: $DB.raw(...)
+          # The query text, not its parameters: a bound parameter is the safe form.
+          - patterns:
+              - pattern-either:
+                  - pattern: $DB.query($Q, ...)
+                  - pattern: $DB.raw($Q, ...)
+                  - pattern: $DB.$queryRawUnsafe($Q, ...)
+                  - pattern: $DB.$executeRawUnsafe($Q, ...)
+              - focus-metavariable: $Q
           - pattern: $EL.innerHTML = $V
           - pattern: $EL.outerHTML = $V
+          - pattern: $EL.insertAdjacentHTML(...)
+          - pattern: document.write(...)
+          - patterns:
+              - pattern-inside: "{..., __html: $V, ...}"
+              - focus-metavariable: $V
 
   - id: model-output-into-sink-python
     languages: [python]
@@ -208,6 +370,11 @@ rules:
           - pattern: $S.model_validate(...)
           - pattern: $S.model_validate_json(...)
           - pattern: $S.parse_obj(...)
+      - patterns:
+          - pattern: $TABLE[$K]
+          - metavariable-regex:
+              metavariable: $TABLE
+              regex: ^[A-Z][A-Z0-9_]*$
     pattern-sinks:
       - pattern-either:
           - pattern: eval(...)
@@ -216,4 +383,7 @@ rules:
           - pattern: subprocess.run(...)
           - pattern: subprocess.call(...)
           - pattern: subprocess.Popen(...)
-          - pattern: $CUR.execute(...)
+          # The query text, not its parameters: a bound parameter is the safe form.
+          - patterns:
+              - pattern: $CUR.execute($Q, ...)
+              - focus-metavariable: $Q
