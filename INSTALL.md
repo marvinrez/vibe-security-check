@@ -41,8 +41,10 @@ deliberately: *"code review this, it came out of v0"*. It answers a different qu
 These read a rules file rather than a skill. Use the prevention layer:
 
 ```bash
-cp RULES.md /path/to/project/AGENTS.md
+cat RULES.md >> /path/to/project/AGENTS.md
 ```
+
+Appending keeps whatever the project's rules file already says; `cp` would replace it.
 
 For an audit rather than prevention, paste `skills/vibe-security-check/PROMPT.md` into the chat and
 attach the reference files for the domains that apply.
@@ -72,6 +74,8 @@ skills/vibe-security-check/scripts/anon-key-probe.sh https://PROJECT.supabase.co
 semgrep --config skills/vibe-security-check/rules/vibe-security.yaml .
 ```
 
-Each exits non-zero on a finding, so they drop into any CI unchanged.
+Each exits 1 on a finding and 2 when it could not finish the check — an unreachable host, a
+redirect or login wall, no build to scan — so they drop into any CI unchanged, and a check that did
+not run never reads as a pass.
 
 Only run `exposed-paths.sh` and `anon-key-probe.sh` against hosts you own or are authorized to test.

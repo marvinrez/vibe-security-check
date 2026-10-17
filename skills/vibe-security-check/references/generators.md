@@ -55,8 +55,9 @@ Independent of the tool. These are absent by default because nothing breaks with
 prompts anyone to add them:
 
 - Rate limiting on anything, including the routes that cost money (`cost.md`).
-- A row-level security policy **per command** — a select policy with insert, update and delete left
-  open is the common half-finished state (`data-stores.md`).
+- A row-level security policy that compares the row with the caller. The common half-finished state
+  is RLS left off, or turned on with `USING (true)` or a policy any signed-in user passes, because
+  that is what made the screen work (`data-stores.md`).
 - Webhook signature verification against the raw body (`payments.md`).
 - A named CORS origin list, rather than a reflected origin (`input-output.md`).
 - Security headers and a CSP (`input-output.md`).

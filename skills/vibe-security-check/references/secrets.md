@@ -26,7 +26,9 @@ Check this one first, always. One live leaked key outranks every other finding i
 Managed platforms hand out two keys: a public one meant for the browser, and a service-role key that
 **bypasses every access rule**. AI-generated code reaches for the second one when the first hits a
 permission error, because that makes the feature work. Grep for it by name (`SERVICE_ROLE`,
-`service_role`, `SUPABASE_SERVICE_KEY`, `FIREBASE_ADMIN`) and confirm every hit is server-side only.
+`service_role`, `SUPABASE_SERVICE_KEY`, `SUPABASE_SECRET_KEY`, `sb_secret_`, `FIREBASE_ADMIN`) and
+confirm every hit is server-side only. Supabase's newer keys use the same split under new names:
+`sb_publishable_` is the public one, `sb_secret_` the one that bypasses the rules.
 One service-role key in a bundle is total database compromise regardless of how good the rules are.
 
 ## Rotation

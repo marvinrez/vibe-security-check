@@ -13,7 +13,9 @@ raises the cost by minutes.
 - API keys, service credentials, signing secrets: none of them belong in the app. If the app needs
   a privileged action, the app calls **your** server and your server holds the credential.
 - In React Native and Expo, remember the JavaScript bundle is shipped in full, including anything
-  prefixed `EXPO_PUBLIC_`. `scripts/bundle-secrets.sh` works on mobile bundles.
+  prefixed `EXPO_PUBLIC_`. `scripts/bundle-secrets.sh` works on mobile bundles once they are
+  unpacked: unzip the `.apk` or `.ipa` and point it at the result. Hermes bytecode is read as bytes,
+  so the strings inside it are found.
 - Keys that must exist client-side (a Maps key, an analytics key) are restricted at the provider by
   bundle identifier and by API, so a copied key is useless elsewhere.
 

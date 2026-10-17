@@ -1,10 +1,11 @@
 # Security rules for AI-assisted development
 
-Copy this into a project so the agent reads it while writing code:
+Add this to a project so the agent reads it while writing code. Append rather than copy, so an
+existing rules file keeps what it already says:
 
 ```bash
-cp RULES.md /path/to/project/AGENTS.md      # Cursor, Copilot, Codex, Windsurf, Gemini CLI
-cp RULES.md /path/to/project/CLAUDE.md      # Claude Code
+cat RULES.md >> /path/to/project/AGENTS.md      # Cursor, Copilot, Codex, Windsurf, Gemini CLI
+cat RULES.md >> /path/to/project/CLAUDE.md      # Claude Code
 ```
 
 **What this is and is not.** It reduces the rate at which these flaws get written, which is worth
@@ -56,8 +57,11 @@ Client-side validation is for the user. Run the same schema on the server, at th
 
 ## Data stores
 
-When creating a table on a managed platform, enable row-level security and write a policy **per
-command** — select, insert, update and delete each need one. A select-only policy leaves writes open.
+When creating a table on a managed platform, enable row-level security in the same migration. With
+RLS on, a command that has no policy is refused, so write a policy only for what the feature does —
+a table users only read gets a `SELECT` policy and nothing else. Every policy compares the row with
+the caller (`(select auth.uid()) = user_id`); never `USING (true)`, and never a policy that only
+requires someone to be signed in when anyone can sign up.
 
 Buckets are private by default. Serve user files through signed URLs with an expiry.
 

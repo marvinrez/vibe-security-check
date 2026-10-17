@@ -55,8 +55,8 @@ subtraction or by propagating one bad pattern; agents that run commands (Claude 
 CLI, Devin) add the repository as an input channel. One question to whoever hands you the app
 decides what to open first.
 
-**Four scripts that produce evidence**, not opinion. Each exits non-zero on a finding, so they drop
-into CI unchanged.
+**Four scripts that produce evidence**, not opinion. Each exits 1 on a finding and 2 when it could
+not finish the check, so they drop into CI unchanged and a check that did not run never passes.
 
 | Script | Answers |
 | --- | --- |
@@ -75,7 +75,9 @@ the build.
 
 **Tests that run the scripts.** `scripts/tests/run.sh` executes all four against local stand-in
 hosts and fixtures, and checks the three answers that matter: it finds what is there, it stays quiet
-on what is clean, and an unreachable host reports as incomplete rather than as a pass.
+on what is clean, and a host that could not really be tested — unreachable, redirecting, behind a
+login — reports as incomplete rather than as a pass. The stand-in database replays what a real
+PostgREST answers for each RLS state, so a locked table is tested as a locked table actually looks.
 
 ```bash
 semgrep --config skills/vibe-security-check/rules/vibe-security.yaml .
