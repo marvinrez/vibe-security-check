@@ -24,8 +24,8 @@ style={{ color: "#6C63FF", padding: "16px", fontSize: "14px" }}
 // Tokens via sx prop
 <Box sx={{ color: "primary.main", p: 2, typography: "body2" }} />
 
-// Responsive values
-<Box sx={{ fontSize: { xs: "sm", md: "md" } }} />
+// Responsive values - each breakpoint takes the same tokens
+<Box sx={{ p: { xs: 1, md: 2 } }} />
 
 // Styled API for complex overrides
 import { styled } from "@mui/material/styles";

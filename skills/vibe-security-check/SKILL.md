@@ -14,7 +14,7 @@ description: >-
   use a diff-scoped review instead.
 license: MIT
 metadata:
-  version: "2.0"
+  version: "2.1"
 ---
 
 # vibe-security-check
