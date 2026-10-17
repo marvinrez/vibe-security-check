@@ -55,8 +55,8 @@ subtraction or by propagating one bad pattern; agents that run commands (Claude 
 CLI, Devin) add the repository as an input channel. One question to whoever hands you the app
 decides what to open first.
 
-**Four scripts that produce evidence**, not opinion. Each exits non-zero on a finding, so they drop
-into CI unchanged.
+**Four scripts that produce evidence**, not opinion. Each exits 1 on a finding and 2 when it could
+not finish the check, so they drop into CI unchanged and a check that did not run never passes.
 
 | Script | Answers |
 | --- | --- |
@@ -69,21 +69,26 @@ into CI unchanged.
 bypasses every rule, the model and token limit taken from the client, the charge amount posted by
 the browser, the webhook signature verified against a parsed body, mass assignment straight from the
 request, and a taint rule for a model's response reaching a query, a shell command, raw HTML or
-`eval` without being parsed into a shape the app defined. Paired fixtures pin the behaviour, and CI enforces it per rule: every rule in the file must
-fire on a vulnerable fixture, and none may fire on a safe one. A rule added without a fixture fails
-the build.
+`eval` without being parsed into a shape the app defined. The rules about client values follow them
+through destructuring and `await req.json()`, so a Next.js route handler is covered as well as an
+Express one. Paired fixtures pin the behaviour line by line: each line a rule must fire on is
+annotated, a vulnerable fixture may produce no finding that is not, and a safe fixture — Stripe's
+documented webhook handler, a parameterized query, an allowlist lookup — may produce none at all.
+A rule added without a fixture fails the build.
 
 **Tests that run the scripts.** `scripts/tests/run.sh` executes all four against local stand-in
 hosts and fixtures, and checks the three answers that matter: it finds what is there, it stays quiet
-on what is clean, and an unreachable host reports as incomplete rather than as a pass.
+on what is clean, and a host that could not really be tested — unreachable, redirecting, behind a
+login — reports as incomplete rather than as a pass. The stand-in database replays what a real
+PostgREST answers for each RLS state, so a locked table is tested as a locked table actually looks.
 
 ```bash
 semgrep --config skills/vibe-security-check/rules/vibe-security.yaml .
 ```
 
 Semgrep's default ignore list skips directories named `tests/`, so pointing it at `rules/tests/`
-returns nothing and looks like the rules are broken. Pass the fixture files individually, the way
-CI does.
+returns nothing and looks like the rules are broken. Pass the fixture files individually, or run
+the check CI runs, from `skills/vibe-security-check`: `python3 rules/tests/check.py`.
 
 **A prevention layer.** [`RULES.md`](RULES.md) copies into a project as `AGENTS.md` or `CLAUDE.md` so
 flaws are less likely to be written in the first place. It is not a control, and it says so.

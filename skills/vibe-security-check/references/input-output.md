@@ -70,8 +70,12 @@ reliable than a denylist of addresses.
 
 ## CORS
 
-`Access-Control-Allow-Origin: *` together with credentials defeats origin protection. Reflecting the
-request's `Origin` header back is the same mistake wearing a disguise. Name the origins you accept.
+The exploitable mistake is reflecting the request's `Origin` header back with
+`Access-Control-Allow-Credentials: true` — in the `cors` package, `origin: true`, or a callback that
+always answers yes. Every site on the internet can then make credentialed requests and read the
+answer. `Access-Control-Allow-Origin: *` with credentials looks worse and is not: browsers refuse
+that combination, so it only breaks the app, and the usual "fix" is to switch to reflection. Name
+the origins you accept.
 
 ## Webhooks
 

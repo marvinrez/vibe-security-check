@@ -32,8 +32,9 @@ without passing through anything that could reject it.
 
 Look for the model's response reaching a query, a shell command, a file path, a URL the server
 fetches, `innerHTML`, `eval`, or a tool call that moves money, sends mail or writes to the database.
-`rules/vibe-security.yaml` has a taint rule for the common shapes in JavaScript and Python, but it
-only sees what stays inside one file.
+`rules/vibe-security.yaml` has a taint rule for the common shapes in JavaScript and Python, but
+Semgrep's free engine follows data inside one function only: when the model call lives in a helper
+such as `askModel()` and the caller passes its result to `exec`, the rule sees neither half.
 
 The fix is not a better prompt. It is a shape: parse the response into a structure you defined, or
 map it onto an allowlist of actions, and let anything that does not fit fail. "Only reply with a
